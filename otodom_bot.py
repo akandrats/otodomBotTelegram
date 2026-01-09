@@ -1,15 +1,8 @@
 import os
-import asyncio
 import requests
 from bs4 import BeautifulSoup
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
@@ -29,8 +22,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def set_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
     try:
-        chat_id = update.message.chat_id
         (
             region, city, pmin, pmax, amin, amax, rooms_str,
             build_year_min, description
@@ -49,8 +42,8 @@ async def set_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
 
         await update.message.reply_text("✅ Filtry zapisane. Sprawdzam ogłoszenia co 10 minut.")
-    except Exception:
-        await update.message.reply_text("❌ Zły format danych.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Zły format danych. Błąd: {e}")
 
 # ===== SCRAPING =====
 async def check_otodom(context: ContextTypes.DEFAULT_TYPE):
@@ -76,7 +69,7 @@ async def check_otodom(context: ContextTypes.DEFAULT_TYPE):
             for offer in offers:
                 link_tag = offer.find("a", href=True)
                 price_tag = offer.select_one("[data-testid='ad-price']")
-                desc_tag = offer.select_one("p[data-testid='ad-description']") or ""
+                desc_tag = offer.select_one("p[data-testid='ad-description']")
 
                 if not link_tag or not price_tag:
                     continue
@@ -85,7 +78,8 @@ async def check_otodom(context: ContextTypes.DEFAULT_TYPE):
                 if link in sent_links:
                     continue
 
-                if f["description"].replace("+", " ").lower() not in desc_tag.get_text(strip=True).lower():
+                desc_text = desc_tag.get_text(strip=True).lower() if desc_tag else ""
+                if f["description"].replace("+", " ").lower() not in desc_text:
                     continue
 
                 title = link_tag.get_text(strip=True)
@@ -100,7 +94,7 @@ async def check_olx(context: ContextTypes.DEFAULT_TYPE):
     bot = context.bot
     for chat_id, f in user_filters.items():
         try:
-            rooms_params = ",".join(f["rooms_label"])
+            rooms_params = ",".join(f["rooms_label"])  # OLX: 1,2
             url = (
                 f"https://www.olx.pl/nieruchomosci/mieszkania/sprzedaz/"
                 f"{f['city']}/?"
