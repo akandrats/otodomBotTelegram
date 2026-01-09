@@ -8,17 +8,18 @@ from telegram.ext import (
     MessageHandler,
     filters,
     ContextTypes,
+    JobQueue,
 )
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-# ===== PAMIĘĆ =====
+# Globalne struktury danych
 user_filters = {}
 sent_links = set()
-
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
-# ===== KOMENDY =====
+
+# ================== HANDLERY KOMEND ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Cześć! Podaj parametry w jednej wiadomości:\n\n"
@@ -48,19 +49,25 @@ async def set_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "build_year_min": int(build_year_min),
             "description": description.replace(" ", "+"),
         }
-
         await update.message.reply_text("✅ Filtry zapisane. Sprawdzam ogłoszenia co jakiś czas.")
     except Exception as e:
         await update.message.reply_text(f"❌ Zły format lub błąd danych.\nBłąd: {str(e)}")
 
 
-# ===== SCRAPING =====
-# (pozostałe funkcje check_otodom i check_olx zostawiam bez zmian – tylko drobne poprawki bezpieczeństwa)
-# ... (tu wklej swoje funkcje check_otodom i check_olx)
+# ================== FUNKCJE SCRAPINGU ==================
+async def check_otodom(context: ContextTypes.DEFAULT_TYPE):
+    # ← tutaj Twoja logika sprawdzania Otodom
+    # Pamiętaj, że w v20+ callback w JobQueue musi być async!
+    print("Sprawdzam Otodom...")
 
 
+async def check_olx(context: ContextTypes.DEFAULT_TYPE):
+    # ← tutaj Twoja logika sprawdzania OLX
+    print("Sprawdzam OLX...")
+
+
+# ================== GŁÓWNA FUNKCJA ==================
 def main():
-    # Najnowszy, zalecany sposób w v22.x
     application = (
         ApplicationBuilder()
         .token(TOKEN)
@@ -70,18 +77,16 @@ def main():
         .build()
     )
 
-    # Dodajemy handler'y
+    # Handlery
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_filters))
 
-    # JobQueue – teraz jest dostępne po instalacji z [job-queue]
     job_queue = application.job_queue
-
     if job_queue is None:
-        print("!!! JobQueue nie jest dostępne. Zainstaluj python-telegram-bot z [job-queue] !!!")
+        print("!!! JobQueue niedostępne – zainstaluj python-telegram-bot[job-queue] !!!")
         return
 
-    # Uruchamiamy zadania cykliczne
+    # Ważne: funkcje check_* MUSZĄ być async w v20+
     job_queue.run_repeating(
         callback=check_otodom,
         interval=600,   # 10 minut
@@ -95,8 +100,6 @@ def main():
     )
 
     print("🤖 Bot wystartował! Sprawdzanie co 10/15 minut.")
-    
-    # Start bota
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
         drop_pending_updates=True
