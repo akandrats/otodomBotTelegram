@@ -1,3 +1,4 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 from telegram import Update
@@ -10,7 +11,7 @@ from telegram.ext import (
 )
 from apscheduler.schedulers.background import BackgroundScheduler
 
-TOKEN = "8358134069:AAFFaIcJLb_zT5pmJSo-l_LLTlReU3hoGAY"
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 # ===== PAMIĘĆ (bez bazy) =====
 user_filters = {}
